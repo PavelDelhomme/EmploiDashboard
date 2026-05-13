@@ -7,7 +7,9 @@ Application **Node.js + Express** : carte interactive (Leaflet), liste filtrable
 - **[Dispositif API « France Travail Connect »](https://www.data.gouv.fr/dataservices/dispositif-api-france-travail-connect)** : accès **restreint**, flux **OAuth utilisateur** pour récupérer les **données personnelles** d’une personne connectée avec son compte francetravail.fr. Ce n’est **pas** ce qu’il faut pour lister des salons / forums publics.
 - **[API « Mes évènements emploi »](https://www.data.gouv.fr/fr/dataservices/api-evenements-france-travail/)** : base d’événements (forums, job datings, etc.) avec **OAuth2 « client credentials »** (identifiant / secret d’application, sans login utilisateur). C’est ce que ce projet utilise.
 
-Inscription et doc produits : [francetravail.io](https://francetravail.io/inscription) — crée une application, souscris à l’API événements, récupère **Client ID**, **Client Secret** et le **scope** exact indiqué pour ton app (copie-le dans `FT_OAUTH_SCOPE`). Si une requête renvoie **404**, vérifie dans la doc catalogue le chemin exact de la ressource et mets à jour `FT_EVENTS_PATH` (et éventuellement `FT_EXTRA_QUERY` dans `.env`).
+Inscription et doc produits : [francetravail.io](https://francetravail.io/inscription) — crée une application, souscris à l’API **Mes évènements emploi**, récupère **Client ID**, **Client Secret** et le **scope** exact. La fiche data.gouv : [API Mes évènements emploi](https://www.data.gouv.fr/fr/dataservices/api-evenements-france-travail/). Le portail grand public qui présente le même type d’événements (salons, job datings, ateliers, etc.) est [Mes événements emploi](https://mesevenementsemploi.francetravail.fr/mes-evenements-emploi/) : ce n’est pas une API à scraper, mais la vitrine « humaine » du dispositif ; l’app consomme l’**API partenaire** et retombe sur le portail pour les liens si l’API ne renvoie pas d’URL directe.
+
+Si une requête renvoie **404**, aligne **`FT_EVENTS_PATH`** et les paramètres de requête sur l’**OpenAPI** fournie dans ton espace développeur (le catalogue varie selon les versions de produit). Tu peux activer **`FT_USE_RANGE_HEADER=true`** si la doc indique une pagination par en-tête `Range`.
 
 ## Makefile (recommandé)
 
@@ -77,6 +79,9 @@ Pour pousser : configure `git remote add origin git@github.com:USER/REPO.git` (o
 | `FT_CLIENT_ID` / `FT_CLIENT_SECRET` | OAuth2 client credentials |
 | `FT_OAUTH_SCOPE` | Scope **exact** fourni par le portail pour ton app |
 | `FT_EVENTS_PATH` | Chemin de la ressource (à aligner sur la doc FT si besoin) |
+| `FT_FILTER_CODE_POSTAL` / `FT_FILTER_DEPARTEMENT` | Filtres géo envoyés à l’API (si prévus par le produit) |
+| `FT_PORTAL_BASE_URL` / `FT_PORTAL_EVENT_URL_TEMPLATE` | Portail [Mes événements emploi](https://mesevenementsemploi.francetravail.fr/mes-evenements-emploi/) et modèle de lien détail |
+| `FT_USE_RANGE_HEADER` / `FT_RANGE_PAGE_SIZE` | Pagination type `Range` (si doc produit) |
 | `RENNES_LAT` / `RENNES_LON` / `DEFAULT_RADIUS_KM` | Zone géographique |
 | `SMTP_*` / `MAIL_FROM` | Envoi des alertes |
 | `FT_SEED_SILENT` | Premier cycle : enregistre les événements existants **sans** envoyer d’emails |
