@@ -67,27 +67,7 @@ Modèle simple :
 
 Les branches peuvent coexister sur le même commit ; à toi d’ouvrir des **pull requests** `feature/*` → `develop`, puis `develop` → `main` sur GitHub.
 
-## GitHub en SSH + push
-
-1. Clé SSH ajoutée à ton compte GitHub ([documentation](https://docs.github.com/fr/authentication/connecting-to-github-with-ssh)).
-2. Configurer le remote puis pousser :
-
-```bash
-make remote-ssh GITHUB_USER=tonCompteGitHub REPO=EmploiDashboard
-make push
-```
-
-### Créer le dépôt avec la CLI `gh` (HTTPS configuré vers SSH dans `gh` de préférence)
-
-Sans remote `origin` existant :
-
-```bash
-make gh-create GITHUB_USER=tonCompteGitHub REPO=EmploiDashboard
-```
-
-Si `origin` existe déjà : utilise `make remote-ssh …` puis `make push`.
-
-Sans CLI : crée le dépôt vide sur GitHub, puis `make remote-ssh …` et `make push`.
+Pour pousser : configure `git remote add origin git@github.com:USER/REPO.git` (ou `git remote set-url`), puis `git push -u origin main` (et les autres branches si besoin). Tu peux aussi utiliser `make push` si ton `origin` est déjà défini.
 
 ## Variables utiles
 

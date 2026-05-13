@@ -232,6 +232,17 @@ export function mockEventsRennes() {
       typeLabel: "Job dating",
       raw: { demo: true },
     },
+    {
+      key: "mock-atelier-saintmalo-1",
+      title: "Atelier CV — Saint-Malo (démo, hors fenêtre dates)",
+      startAt: d(55),
+      locationLabel: "Saint-Malo 35400",
+      lat: 48.6493,
+      lon: -2.0075,
+      url: "https://mesevenementsemploi.francetravail.fr/",
+      typeLabel: "Atelier",
+      raw: { demo: true },
+    },
   ];
 }
 

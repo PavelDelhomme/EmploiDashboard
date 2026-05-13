@@ -183,6 +183,32 @@
       a {
         color: #93c5fd;
       }
+      #loading {
+        font-size: 0.8rem;
+        color: var(--muted);
+        visibility: hidden;
+      }
+      #loading.visible {
+        visibility: visible;
+      }
+      .subs-head {
+        margin-top: 0.65rem;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+      .sub-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.82rem;
+      }
+      .sub-row button {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.45rem;
+      }
     </style>
   </head>
   <body>
@@ -190,6 +216,7 @@
       <div>
         <h1>Dashboard événements emploi — Rennes & alentours</h1>
         <div class="tag" id="source-tag"></div>
+        <div class="tag" id="loading">Chargement…</div>
       </div>
       <button class="ghost" type="button" id="btn-refresh">Actualiser</button>
     </header>
@@ -241,7 +268,8 @@
             <button class="ghost" type="button" id="btn-poll">Poll maintenant</button>
           </div>
           <div id="sub-msg"></div>
-          <div class="tag" id="subs-list" style="margin-top: 0.5rem"></div>
+          <div class="subs-head">Abonnés aux alertes</div>
+          <div id="subs-container"></div>
         </div>
       </aside>
     </main>
@@ -255,10 +283,13 @@
       const listEl = document.getElementById("list");
       const sourceTag = document.getElementById("source-tag");
       const subMsg = document.getElementById("sub-msg");
-      const subsList = document.getElementById("subs-list");
+      const subsContainer = document.getElementById("subs-container");
+      const loadingEl = document.getElementById("loading");
+      const btnRefresh = document.getElementById("btn-refresh");
 
       let map;
-      let layerGroup;
+      let layerMarkers;
+      let layerZone;
       let markers = {};
       let activeKey = null;
 
@@ -280,10 +311,39 @@
       async function loadSubs() {
         const r = await fetch("/api/subscribers");
         const j = await r.json();
-        subsList.textContent =
-          j.subscribers?.length > 0
-            ? "Abonnés : " + j.subscribers.map((s) => s.email).join(", ")
-            : "Aucun abonné pour l’instant.";
+        subsContainer.innerHTML = "";
+        if (!j.subscribers?.length) {
+          subsContainer.textContent = "Aucun abonné pour l’instant.";
+          return;
+        }
+        j.subscribers.forEach((s) => {
+          const row = document.createElement("div");
+          row.className = "sub-row";
+          const em = escapeHtml(s.email);
+          row.innerHTML = `<span>${em}</span>`;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ghost";
+          btn.textContent = "Retirer";
+          btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await fetch("/api/subscribers/" + encodeURIComponent(s.email), { method: "DELETE" });
+            await loadSubs();
+            const cfg = await loadConfig();
+            updateSourceTag(cfg);
+          });
+          row.appendChild(btn);
+          subsContainer.appendChild(row);
+        });
+      }
+
+      function updateSourceTag(cfg) {
+        const base = cfg.mockMode
+          ? "Source : données de démo (MOCK_FT=true)"
+          : "Source : API France Travail (événements)";
+        const n = Number(cfg.subscriberCount || 0);
+        sourceTag.textContent = n > 0 ? `${base} · ${n} abonné(s) email` : base;
       }
 
       function setErr(t) {
@@ -320,6 +380,11 @@
             <div class="meta">${escapeHtml(fmtDate(ev.startAt))}</div>
             <div class="meta">${escapeHtml(ev.locationLabel || "")}</div>
             <div class="meta">${escapeHtml(ev.typeLabel || "")}</div>
+            ${
+              ev.url
+                ? `<div class="meta"><a href="${escapeAttr(ev.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Détail / inscription</a></div>`
+                : ""
+            }
           `;
           div.addEventListener("click", () => selectEvent(ev));
           listEl.appendChild(div);
@@ -350,16 +415,16 @@
       let eventsRef = [];
 
       async function refresh() {
+        loadingEl.classList.add("visible");
+        btnRefresh.disabled = true;
         try {
           const cfg = await loadConfig();
-          sourceTag.textContent = cfg.mockMode
-            ? "Source : données de démo (MOCK_FT=true)"
-            : "Source : API France Travail (événements) — OAuth2 client credentials";
+          updateSourceTag(cfg);
 
           const j = await loadEvents();
           eventsRef = j.events || [];
           renderList(eventsRef);
-          layerGroup.clearLayers();
+          layerMarkers.clearLayers();
           markers = {};
           const bounds = [];
           eventsRef.forEach((ev) => {
@@ -369,13 +434,16 @@
               fmtDate(ev.startAt)
             )}<br/><a href="${escapeAttr(ev.url)}" target="_blank" rel="noopener">Détails</a>`;
             m.bindPopup(popup);
-            m.addTo(layerGroup);
+            m.addTo(layerMarkers);
             markers[ev.key] = m;
             bounds.push([ev.lat, ev.lon]);
           });
           if (bounds.length) map.fitBounds(bounds, { padding: [32, 32], maxZoom: 11 });
         } catch (e) {
           setErr(e.message || String(e));
+        } finally {
+          loadingEl.classList.remove("visible");
+          btnRefresh.disabled = false;
         }
       }
 
@@ -390,14 +458,15 @@
           maxZoom: 19,
           attribution: "&copy; OpenStreetMap",
         }).addTo(map);
-        layerGroup = L.layerGroup().addTo(map);
+        layerZone = L.layerGroup().addTo(map);
         L.circle([cfg.center.lat, cfg.center.lon], {
           radius: (cfg.radiusKm || 40) * 1000,
           color: "#3b82f6",
           weight: 1,
           fillColor: "#3b82f6",
           fillOpacity: 0.08,
-        }).addTo(layerGroup);
+        }).addTo(layerZone);
+        layerMarkers = L.layerGroup().addTo(map);
       }
 
       document.getElementById("btn-refresh").addEventListener("click", refresh);
@@ -415,6 +484,8 @@
         if (!r.ok) subMsg.innerHTML = `<span class="err">${escapeHtml(j.error)}</span>`;
         else subMsg.innerHTML = `<span class="ok">Abonnement enregistré : ${escapeHtml(j.email)}</span>`;
         await loadSubs();
+        const cfg = await loadConfig();
+        updateSourceTag(cfg);
       });
 
       document.getElementById("btn-test").addEventListener("click", async () => {

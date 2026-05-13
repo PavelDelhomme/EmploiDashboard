@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getDb, addSubscriber, removeSubscriber, listSubscribers } from "./db.js";
+import { filterEvents } from "./eventFilters.js";
 import { getEventsForDashboard } from "./francetravail.js";
 import { isRecentlySeen, pollOnce, startPoller } from "./poller.js";
 import { sendTestEmail } from "./mailer.js";
@@ -20,6 +21,12 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("/api/config", (_req, res) => {
+  let subscriberCount = 0;
+  try {
+    subscriberCount = listSubscribers(getDb()).length;
+  } catch {
+    /* sqlite indisponible au premier instant */
+  }
   res.json({
     center: {
       lat: Number(process.env.RENNES_LAT || 48.1173),
@@ -27,13 +34,14 @@ app.get("/api/config", (_req, res) => {
     },
     radiusKm: Number(process.env.DEFAULT_RADIUS_KM || 40),
     mockMode: String(process.env.MOCK_FT || "").toLowerCase() === "true",
+    subscriberCount,
   });
 });
 
 app.get("/api/events", async (req, res) => {
   try {
     const db = getDb();
-    const { source, events } = await getEventsForDashboard({
+    const { source, events: rawEvents } = await getEventsForDashboard({
       lat: process.env.RENNES_LAT,
       lon: process.env.RENNES_LON,
       radiusKm: process.env.DEFAULT_RADIUS_KM,
@@ -43,9 +51,26 @@ app.get("/api/events", async (req, res) => {
       type: req.query.type,
     });
 
+    let events = filterEvents(rawEvents, {
+      dateFrom: req.query.from,
+      dateTo: req.query.to,
+      type: req.query.type,
+    });
+
+    const qkw = String(req.query.q || "")
+      .trim()
+      .toLowerCase();
+    if (qkw) {
+      events = events.filter((ev) => {
+        const blob = `${ev.title} ${ev.locationLabel} ${ev.typeLabel}`.toLowerCase();
+        return blob.includes(qkw);
+      });
+    }
+
     const enriched = events.map((ev) => {
+      const { raw: _raw, ...pub } = ev;
       const { isNewBadge } = isRecentlySeen(db, ev.key);
-      return { ...ev, isNew: isNewBadge };
+      return { ...pub, isNew: isNewBadge };
     });
 
     res.json({ source, count: enriched.length, events: enriched });

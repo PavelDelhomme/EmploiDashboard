@@ -6,7 +6,7 @@ SHELL := /bin/bash
 ROOT := $(abspath .)
 
 .PHONY: help env up down restart logs ps shell build clean url port-print install dev \
-	remote-ssh push push-all branches-init gh-create
+	push push-all branches-init
 
 help: ## Affiche les cibles disponibles
 	@echo "Cibles principales :"
@@ -54,24 +54,11 @@ install: env ## npm install local (hors Docker)
 dev: install ## Lance le serveur Node en local (PORT depuis .env)
 	@command -v npm >/dev/null && (cd "$(ROOT)" && npm run dev) || exit 1
 
-# --- Git / GitHub (SSH) ---
-# Exemple : make remote-ssh GITHUB_USER=tonCompteGitHub REPO=EmploiDashboard
-remote-ssh: ## Configure origin → git@github.com:USER/REPO.git
-	@test -n "$${GITHUB_USER:-}" && test -n "$${REPO:-}" || { echo "Usage: make remote-ssh GITHUB_USER=toi REPO=EmploiDashboard"; exit 1; }
-	@bash scripts/git-remote-ssh.sh "$(GITHUB_USER)" "$(REPO)"
-
+# --- Git (optionnel) ---
 push push-all: ## Pousse main, develop et feature/tooling-makefile-ports vers origin
 	git push -u origin main
 	-git push -u origin develop
 	-git push -u origin feature/tooling-makefile-ports
-
-# Crée le dépôt sur GitHub (sans remote existant) et pousse — nécessite : gh auth login
-# Exemple : make gh-create GITHUB_USER=toi REPO=EmploiDashboard
-gh-create: ## gh repo create (SSH) + push — GITHUB_USER et REPO requis ; sans origin
-	@test -n "$${GITHUB_USER:-}" && test -n "$${REPO:-}" || { echo "Usage: make gh-create GITHUB_USER=toi REPO=EmploiDashboard"; exit 1; }
-	@command -v gh >/dev/null || { echo "Installe la CLI GitHub : https://cli.github.com/"; exit 1; }
-	@if git remote get-url origin >/dev/null 2>&1; then echo "Le remote origin existe déjà — utilise : make remote-ssh … puis make push"; exit 1; fi
-	gh repo create "$(GITHUB_USER)/$(REPO)" --private --source=. --remote=origin --push
 
 branches-init: ## Affiche le modèle de branches (main / develop / feature)
 	@echo "Modèle : main (stable) ← develop (intégration) ← feature/* (travail)"
