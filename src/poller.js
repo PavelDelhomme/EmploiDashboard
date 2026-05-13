@@ -5,6 +5,13 @@ import { getEventsForDashboard, isMockMode } from "./francetravail.js";
 
 const NEW_BADGE_HOURS = 36;
 
+/** Dernier résultat du poll (pour /api/status). */
+let lastPollInfo = { at: null, ok: null, summary: null };
+
+export function getLastPollInfo() {
+  return lastPollInfo;
+}
+
 export function isRecentlySeen(db, eventKey) {
   const row = db.prepare("SELECT first_seen_at FROM seen_events WHERE event_key = ?").get(eventKey);
   if (!row) return { seen: false, isNewBadge: false };
@@ -13,7 +20,7 @@ export function isRecentlySeen(db, eventKey) {
   return { seen: true, isNewBadge };
 }
 
-export async function pollOnce() {
+async function pollOnceInternal() {
   const db = getDb();
   const { events, source } = await getEventsForDashboard({
     lat: process.env.RENNES_LAT,
@@ -68,6 +75,18 @@ export async function pollOnce() {
     notified: silentSeed ? 0 : subs.length ? newOnes.length : 0,
     subscribers: subs.length,
   };
+}
+
+export async function pollOnce() {
+  const at = new Date().toISOString();
+  try {
+    const out = await pollOnceInternal();
+    lastPollInfo = { at, ok: true, summary: out };
+    return out;
+  } catch (e) {
+    lastPollInfo = { at, ok: false, summary: { error: e.message || String(e) } };
+    throw e;
+  }
 }
 
 export function startPoller() {

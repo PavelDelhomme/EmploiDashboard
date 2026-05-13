@@ -69,6 +69,28 @@ export async function getAccessToken() {
   return tokenCache.accessToken;
 }
 
+/** Diagnostic : vérifie le token OAuth2 sans charger toute la liste d’événements. */
+export async function probePartnerApi() {
+  if (isMockMode()) {
+    return { mode: "mock", credentialsSet: true, tokenOk: true };
+  }
+  const hasCreds = !!(process.env.FT_CLIENT_ID?.trim() && process.env.FT_CLIENT_SECRET?.trim());
+  if (!hasCreds) {
+    return { mode: "live", credentialsSet: false, tokenOk: false };
+  }
+  try {
+    await getAccessToken();
+    return { mode: "live", credentialsSet: true, tokenOk: true };
+  } catch (e) {
+    return {
+      mode: "live",
+      credentialsSet: true,
+      tokenOk: false,
+      error: e.message || String(e),
+    };
+  }
+}
+
 function joinApiUrl() {
   const base = (process.env.FT_API_BASE || "https://api.francetravail.io/").replace(/\/?$/, "/");
   const path = (process.env.FT_EVENTS_PATH || "partenaire/evenements/v1/evenements").replace(/^\/+/, "");

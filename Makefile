@@ -5,7 +5,7 @@ SHELL := /bin/bash
 
 ROOT := $(abspath .)
 
-.PHONY: help env up down restart logs ps shell build clean url port-print install dev \
+.PHONY: help env env-merge up down restart logs ps shell build clean url port-print install dev \
 	push push-all branches-init
 
 help: ## Affiche les cibles disponibles
@@ -16,6 +16,10 @@ env: ## Crée .env depuis .env.example si absent (+ scripts exécutables)
 	@test -f .env || cp .env.example .env
 	@chmod +x scripts/*.sh 2>/dev/null || true
 	@echo "[env] .env prêt (édite FT_* / SMTP_*). AUTO_HOST_PORT=true par défaut."
+
+env-merge: ## Ajoute dans .env les clés manquantes par rapport à .env.example (sans écraser)
+	@chmod +x scripts/merge-env.sh 2>/dev/null || true
+	@bash scripts/merge-env.sh
 
 up: env ## Démarre Docker (HOST_PORT auto dans la plage si AUTO_HOST_PORT=true)
 	@chmod +x scripts/*.sh

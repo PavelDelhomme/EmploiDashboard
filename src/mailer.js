@@ -1,5 +1,9 @@
 import nodemailer from "nodemailer";
 
+export function isSmtpConfigured() {
+  return !!(process.env.SMTP_HOST && String(process.env.SMTP_HOST).trim());
+}
+
 function getTransport() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);

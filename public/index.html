@@ -209,6 +209,15 @@
         font-size: 0.75rem;
         padding: 0.2rem 0.45rem;
       }
+      .empty-list {
+        padding: 1rem 0.75rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+      #status-line {
+        max-width: 52rem;
+      }
     </style>
   </head>
   <body>
@@ -217,6 +226,7 @@
         <h1>Dashboard événements emploi — Rennes & alentours</h1>
         <div class="tag" id="source-tag"></div>
         <div class="tag" id="loading">Chargement…</div>
+        <div class="tag" id="status-line"></div>
       </div>
       <button class="ghost" type="button" id="btn-refresh">Actualiser</button>
     </header>
@@ -286,7 +296,9 @@
       const subsContainer = document.getElementById("subs-container");
       const loadingEl = document.getElementById("loading");
       const btnRefresh = document.getElementById("btn-refresh");
+      const statusLine = document.getElementById("status-line");
 
+      let uiPollTimer = null;
       let map;
       let layerMarkers;
       let layerZone;
@@ -367,8 +379,43 @@
         return j;
       }
 
+      async function loadApiStatus() {
+        try {
+          const r = await fetch("/api/status");
+          const s = await r.json();
+          if (!r.ok) return;
+          const ft = s.franceTravail || {};
+          const poll = s.lastPoll || {};
+          let line = "";
+          if (s.mockMode) line = "API : mode démo · ";
+          else if (ft.tokenOk) line = "API France Travail : jeton OK · ";
+          else if (!ft.credentialsSet) line = "API : identifiants FT manquants · ";
+          else line = "API : jeton refusé (" + (ft.error || "?").slice(0, 80) + ") · ";
+          line += s.smtpConfigured ? "SMTP configuré" : "SMTP non configuré";
+          if (poll.at) {
+            line +=
+              " · Dernier poll : " +
+              (poll.ok ? "OK" : "erreur") +
+              " (" +
+              new Date(poll.at).toLocaleString("fr-FR") +
+              ")";
+          }
+          statusLine.textContent = line;
+        } catch {
+          statusLine.textContent = "";
+        }
+      }
+
       function renderList(events) {
         listEl.innerHTML = "";
+        if (!events.length) {
+          const p = document.createElement("p");
+          p.className = "empty-list";
+          p.textContent =
+            "Aucun événement pour ces filtres. Élargis les dates ou les critères, ou vérifie la config API (voir la ligne d’état ci-dessus).";
+          listEl.appendChild(p);
+          return;
+        }
         events.forEach((ev) => {
           const div = document.createElement("div");
           div.className = "card" + (ev.key === activeKey ? " active" : "");
@@ -445,6 +492,7 @@
           loadingEl.classList.remove("visible");
           btnRefresh.disabled = false;
         }
+        loadApiStatus();
       }
 
       function escapeAttr(s) {
@@ -521,6 +569,13 @@
         await initMap();
         await loadSubs();
         await refresh();
+        const cfgPoll = await loadConfig();
+        const ms = Number(cfgPoll.uiPollIntervalMs || 0);
+        if (ms > 5000) {
+          uiPollTimer = setInterval(() => {
+            refresh().catch(console.error);
+          }, ms);
+        }
       })();
     </script>
   </body>

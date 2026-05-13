@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 
 import { getDb, addSubscriber, removeSubscriber, listSubscribers } from "./db.js";
 import { filterEvents } from "./eventFilters.js";
-import { getEventsForDashboard } from "./francetravail.js";
-import { isRecentlySeen, pollOnce, startPoller } from "./poller.js";
-import { sendTestEmail } from "./mailer.js";
+import { getEventsForDashboard, probePartnerApi, isMockMode } from "./francetravail.js";
+import { isRecentlySeen, pollOnce, startPoller, getLastPollInfo } from "./poller.js";
+import { sendTestEmail, isSmtpConfigured } from "./mailer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -18,6 +18,17 @@ app.use(express.static(path.join(root, "public")));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+app.get("/api/status", async (_req, res) => {
+  const ftProbe = await probePartnerApi();
+  res.json({
+    ts: new Date().toISOString(),
+    mockMode: isMockMode(),
+    franceTravail: ftProbe,
+    smtpConfigured: isSmtpConfigured(),
+    lastPoll: getLastPollInfo(),
+  });
 });
 
 app.get("/api/config", (_req, res) => {
@@ -35,6 +46,7 @@ app.get("/api/config", (_req, res) => {
     radiusKm: Number(process.env.DEFAULT_RADIUS_KM || 40),
     mockMode: String(process.env.MOCK_FT || "").toLowerCase() === "true",
     subscriberCount,
+    uiPollIntervalMs: Math.max(0, Number(process.env.UI_POLL_INTERVAL_MS || 0)),
   });
 });
 

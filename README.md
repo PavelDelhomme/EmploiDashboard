@@ -16,10 +16,13 @@ Si une requête renvoie **404**, aligne **`FT_EVENTS_PATH`** et les paramètres 
 ```bash
 make help          # liste des commandes
 make env           # crée .env depuis .env.example si besoin
+make env-merge     # ajoute les clés manquantes de .env.example dans .env (sans écraser)
 make up            # build + démarrage Docker (voir ports ci-dessous)
 make url           # affiche l’URL si le conteneur tourne
 make down / logs / ps / shell / build / clean
 ```
+
+Diagnostic JSON : `GET /api/status` (jeton FT, SMTP, dernier poll). Le dashboard affiche une synthèse sous le titre.
 
 ### Ports adaptés sur ta machine
 
@@ -83,6 +86,7 @@ Pour pousser : configure `git remote add origin git@github.com:USER/REPO.git` (o
 | `FT_PORTAL_BASE_URL` / `FT_PORTAL_EVENT_URL_TEMPLATE` | Portail [Mes événements emploi](https://mesevenementsemploi.francetravail.fr/mes-evenements-emploi/) et modèle de lien détail |
 | `FT_USE_RANGE_HEADER` / `FT_RANGE_PAGE_SIZE` | Pagination type `Range` (si doc produit) |
 | `RENNES_LAT` / `RENNES_LON` / `DEFAULT_RADIUS_KM` | Zone géographique |
+| `UI_POLL_INTERVAL_MS` | Rafraîchissement auto du navigateur (ms, ex. 120000 ; 0 = off ; minimum effectif 5000) |
 | `SMTP_*` / `MAIL_FROM` | Envoi des alertes |
 | `FT_SEED_SILENT` | Premier cycle : enregistre les événements existants **sans** envoyer d’emails |
 
