@@ -9,15 +9,33 @@ Application **Node.js + Express** : carte interactive (Leaflet), liste filtrable
 
 Inscription et doc produits : [francetravail.io](https://francetravail.io/inscription) — crée une application, souscris à l’API événements, récupère **Client ID**, **Client Secret** et le **scope** exact indiqué pour ton app (copie-le dans `FT_OAUTH_SCOPE`). Si une requête renvoie **404**, vérifie dans la doc catalogue le chemin exact de la ressource et mets à jour `FT_EVENTS_PATH` (et éventuellement `FT_EXTRA_QUERY` dans `.env`).
 
-## Lancer avec Docker (port au choix sur ta machine)
+## Makefile (recommandé)
+
+```bash
+make help          # liste des commandes
+make env           # crée .env depuis .env.example si besoin
+make up            # build + démarrage Docker (voir ports ci-dessous)
+make url           # affiche l’URL si le conteneur tourne
+make down / logs / ps / shell / build / clean
+```
+
+### Ports adaptés sur ta machine
+
+Dans `.env` (voir `.env.example`) :
+
+- **`AUTO_HOST_PORT=true`** (défaut) : au `make up`, un **port libre** est choisi entre `HOST_PORT_RANGE_START` et `HOST_PORT_RANGE_END` ; si `HOST_PORT` est déjà libre, il est conservé.
+- **`AUTO_HOST_PORT=false`** : Docker utilise toujours **`HOST_PORT`** (à toi d’éviter les conflits avec d’autres services).
+
+Si ton environnement ne supporte pas la détection via bash `/dev/tcp` (rare), mets `AUTO_HOST_PORT=false` et choisis un port libre manuellement.
+
+## Lancer avec Docker (sans Makefile)
 
 ```bash
 cp .env.example .env
-# Édite .env : HOST_PORT (ex. 3080), identifiants FT, SMTP…
 docker compose up -d --build
 ```
 
-- Interface : `http://localhost:${HOST_PORT}` (défaut **3080**, donc pas de conflit avec un autre service sur **3000**).
+- Interface : `http://localhost:${HOST_PORT}` (variable d’environnement au moment du `docker compose` ; avec **`make up`**, le script exporte un `HOST_PORT` adapté si besoin).
 - **Nom du conteneur** : `rennes-emploi-dashboard` (recherche facile dans `docker ps`).
 - **Projet Compose** : `rennes-emploi` (préfixe réseau / ressources).
 - Volume SQLite nommé : `rennes-emploi-sqlite`.
@@ -33,28 +51,49 @@ Tu peux quand même tester SMTP et l’interface.
 ## Développement local (sans Docker)
 
 ```bash
-npm install
-cp .env.example .env
-npm run dev
+make install   # ou : npm install
+make dev       # ou : npm run dev
 ```
 
-## Créer le dépôt GitHub
+## Git : branches de travail
+
+Modèle simple :
+
+| Branche | Rôle |
+|---------|------|
+| `main` | version stable / livrable |
+| `develop` | intégration des merges |
+| `feature/*` | développement (ex. `feature/tooling-makefile-ports`) |
+
+Les branches peuvent coexister sur le même commit ; à toi d’ouvrir des **pull requests** `feature/*` → `develop`, puis `develop` → `main` sur GitHub.
+
+## GitHub en SSH + push
+
+1. Clé SSH ajoutée à ton compte GitHub ([documentation](https://docs.github.com/fr/authentication/connecting-to-github-with-ssh)).
+2. Configurer le remote puis pousser :
 
 ```bash
-cd /chemin/vers/EmploiDashboard
-git init
-git add .
-git commit -m "Initial import : dashboard événements emploi Rennes"
-gh repo create rennes-emploi-dashboard --private --source=. --push
+make remote-ssh GITHUB_USER=tonCompteGitHub REPO=EmploiDashboard
+make push
 ```
 
-(Sans GitHub CLI : crée un dépôt vide sur GitHub puis `git remote add origin …` et `git push -u origin main`.)
+### Créer le dépôt avec la CLI `gh` (HTTPS configuré vers SSH dans `gh` de préférence)
+
+Sans remote `origin` existant :
+
+```bash
+make gh-create GITHUB_USER=tonCompteGitHub REPO=EmploiDashboard
+```
+
+Si `origin` existe déjà : utilise `make remote-ssh …` puis `make push`.
+
+Sans CLI : crée le dépôt vide sur GitHub, puis `make remote-ssh …` et `make push`.
 
 ## Variables utiles
 
 | Variable        | Rôle |
 |----------------|------|
-| `HOST_PORT`    | Port sur l’hôte mappé vers le port 3000 du conteneur |
+| `HOST_PORT` / `AUTO_HOST_PORT` / `HOST_PORT_RANGE_*` | Port publié sur ta machine ; auto si `AUTO_HOST_PORT=true` |
 | `FT_CLIENT_ID` / `FT_CLIENT_SECRET` | OAuth2 client credentials |
 | `FT_OAUTH_SCOPE` | Scope **exact** fourni par le portail pour ton app |
 | `FT_EVENTS_PATH` | Chemin de la ressource (à aligner sur la doc FT si besoin) |
