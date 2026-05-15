@@ -1,21 +1,19 @@
-FROM node:20-alpine
+# Build binaire Go (sans CGO → image finale légère)
+FROM golang:1.22-alpine AS build
+RUN apk add --no-cache build-base
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /rennes-emploi ./cmd/rennes-emploi
 
-RUN apk add --no-cache python3 make g++ curl
-
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates curl
 WORKDIR /app
-
-COPY package.json ./
-RUN npm install --omit=dev
-
-COPY src ./src
-COPY public ./public
-
-ENV NODE_ENV=production
-ENV PORT=3000
+COPY --from=build /rennes-emploi /app/rennes-emploi
+COPY public /app/public
 ENV DATA_DIR=/app/data
-
+ENV PORT=3000
 RUN mkdir -p /app/data
-
 EXPOSE 3000
-
-CMD ["node", "src/server.js"]
+CMD ["/app/rennes-emploi"]

@@ -38,4 +38,11 @@ else
   echo "[docker-up] HOST_PORT=${HOST_PORT} (AUTO_HOST_PORT=false)"
 fi
 
-exec docker compose up -d --build "$@"
+# Stack complète avec Camoufox : COMPOSE_WITH_CAMOUFOX=true (ex. make up-full)
+compose_extra=()
+if [[ "${COMPOSE_WITH_CAMOUFOX:-}" == "true" ]]; then
+  compose_extra=(--profile camoufox)
+  echo "[docker-up] profil compose : camoufox (service camoufox-scraper)"
+fi
+
+exec docker compose "${compose_extra[@]}" up -d --build "$@"

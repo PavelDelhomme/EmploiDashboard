@@ -22,6 +22,26 @@ services:
       retries: 3
       start_period: 15s
 
+  # Profil optionnel : docker compose --profile camoufox up -d
+  # Définir dans .env : CAMOUFOX_SCRAPER_URL=http://camoufox-scraper:8765 et SCRAPER_TARGET_URL=<page avec JSON-LD Event>
+  camoufox-scraper:
+    profiles: ["camoufox"]
+    build: ./services/camoufox-scraper
+    image: rennes-emploi-camoufox:latest
+    container_name: rennes-emploi-camoufox
+    restart: unless-stopped
+    environment:
+      SCRAPER_TARGET_URL: ${SCRAPER_TARGET_URL:-}
+      SCRAPER_SETTLE_SEC: ${SCRAPER_SETTLE_SEC:-2}
+    ports:
+      - "${CAMOUFOX_HOST_PORT:-8765}:8765"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+
 volumes:
   rennes-emploi-sqlite:
     name: rennes-emploi-sqlite
