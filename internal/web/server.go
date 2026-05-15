@@ -126,19 +126,22 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 		"mockMode":         francetravail.IsMockMode(),
 		"subscriberCount":  n,
 		"uiPollIntervalMs": envIntMax0("UI_POLL_INTERVAL_MS", 0),
+		"mailDevInboxUrl":  strings.TrimSpace(os.Getenv("MAILPIT_PUBLIC_URL")),
+		"mailForwardActive": strings.TrimSpace(os.Getenv("MAIL_FORWARD_TO")) != "" &&
+			strings.TrimSpace(os.Getenv("MAIL_RELAY_HOST")) != "",
 	})
 }
 
 func (s *Server) getEvents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	eq := francetravail.EventQuery{
-		Lat:       strings.TrimSpace(os.Getenv("RENNES_LAT")),
-		Lon:       strings.TrimSpace(os.Getenv("RENNES_LON")),
-		RadiusKm:  strings.TrimSpace(os.Getenv("DEFAULT_RADIUS_KM")),
-		DateFrom:  q.Get("from"),
-		DateTo:    q.Get("to"),
-		Q:         q.Get("q"),
-		Type:      q.Get("type"),
+		Lat:      strings.TrimSpace(os.Getenv("RENNES_LAT")),
+		Lon:      strings.TrimSpace(os.Getenv("RENNES_LON")),
+		RadiusKm: strings.TrimSpace(os.Getenv("DEFAULT_RADIUS_KM")),
+		DateFrom: q.Get("from"),
+		DateTo:   q.Get("to"),
+		Q:        q.Get("q"),
+		Type:     q.Get("type"),
 	}
 	source, raw, err := s.API.GetEventsForDashboard(eq)
 	if err != nil {

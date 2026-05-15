@@ -67,6 +67,23 @@ function updateSourceTag(cfg) {
   sourceTag.textContent = n > 0 ? `${base} · ${n} abonné(s) email` : base;
 }
 
+function updateMailDevHint(cfg) {
+  const el = document.getElementById("mail-dev-hint");
+  if (!el) return;
+  const url = (cfg.mailDevInboxUrl || "").trim();
+  if (!url) {
+    el.textContent = "";
+    return;
+  }
+  const u = escapeHtml(url);
+  let extra = "";
+  if (cfg.mailForwardActive) {
+    extra =
+      " Une copie est aussi relayée vers ta vraie boîte (relais SMTP dans .env).";
+  }
+  el.innerHTML = `Boîte mail locale (Mailpit) — <a href="${u}" target="_blank" rel="noopener">ouvrir l’interface</a> : tous les envois du dashboard y sont capturés (SMTP local).${extra}`;
+}
+
 function setErr(t) {
   errEl.textContent = t || "";
 }
@@ -176,6 +193,7 @@ async function refresh() {
   try {
     const cfg = await loadConfig();
     updateSourceTag(cfg);
+    updateMailDevHint(cfg);
 
     const j = await loadEvents();
     eventsRef = j.events || [];
@@ -243,6 +261,7 @@ document.getElementById("btn-sub").addEventListener("click", async () => {
   await loadSubs();
   const cfg = await loadConfig();
   updateSourceTag(cfg);
+  updateMailDevHint(cfg);
 });
 
 document.getElementById("btn-test").addEventListener("click", async () => {
@@ -276,6 +295,7 @@ document.getElementById("btn-poll").addEventListener("click", async () => {
   document.getElementById("to").value = fri.toISOString().slice(0, 10);
   document.getElementById("from").value = today.toISOString().slice(0, 10);
   await initMap();
+  updateMailDevHint(await loadConfig());
   await loadSubs();
   await refresh();
   const cfgPoll = await loadConfig();

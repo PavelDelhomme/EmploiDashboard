@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Affiche un port TCP libre sur 127.0.0.1 (bash /dev/tcp).
 # Usage : free-port.sh [DEBUT] [FIN] [PORT_SOUHAITÉ]
+# Réservé à AUTO_HOST_PORT=true dans scripts/docker-up.sh (déconseillé si tu veux des ports fixes par projet).
 set -euo pipefail
 
-start="${1:-3080}"
-end="${2:-3200}"
+start="${1:-18080}"
+end="${2:-18999}"
 preferred="${3:-}"
 
 port_in_use() {

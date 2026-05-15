@@ -3,16 +3,38 @@
 name: rennes-emploi
 
 services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: rennes-emploi-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_HOST_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_HOST_PORT:-1025}:1025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "10000"
+      MP_SMTP_FORWARD_TO: ${MAIL_FORWARD_TO:-}
+      MP_SMTP_FORWARD_HOST: ${MAIL_RELAY_HOST:-}
+      MP_SMTP_FORWARD_PORT: ${MAIL_RELAY_PORT:-587}
+      MP_SMTP_FORWARD_USERNAME: ${MAIL_RELAY_USER:-}
+      MP_SMTP_FORWARD_PASSWORD: ${MAIL_RELAY_PASS:-}
+      MP_SMTP_FORWARD_STARTTLS: ${MAIL_RELAY_STARTTLS:-true}
+      MP_SMTP_FORWARD_ALLOW_INSECURE: ${MAIL_RELAY_INSECURE:-false}
+    volumes:
+      - rennes-emploi-mailpit:/data
+
   dashboard:
     build: .
     image: rennes-emploi-dashboard:latest
     container_name: rennes-emploi-dashboard
     restart: unless-stopped
+    depends_on:
+      - mailpit
     env_file:
       - .env
     ports:
-      # Port machine (évite 3000 si déjà pris) → port interne fixe 3000
-      - "${HOST_PORT:-3080}:3000"
+      # Ports hôtes = uniquement ceux définis dans .env (HOST_PORT, CAMOUFOX_HOST_PORT)
+      - "${HOST_PORT:?Définis HOST_PORT dans .env (port dédié à ce projet)}:3000"
     volumes:
       - rennes-emploi-sqlite:/app/data
     healthcheck:
@@ -34,7 +56,7 @@ services:
       SCRAPER_TARGET_URL: ${SCRAPER_TARGET_URL:-}
       SCRAPER_SETTLE_SEC: ${SCRAPER_SETTLE_SEC:-2}
     ports:
-      - "${CAMOUFOX_HOST_PORT:-8765}:8765"
+      - "${CAMOUFOX_HOST_PORT:-18765}:8765"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
       interval: 60s
@@ -45,3 +67,5 @@ services:
 volumes:
   rennes-emploi-sqlite:
     name: rennes-emploi-sqlite
+  rennes-emploi-mailpit:
+    name: rennes-emploi-mailpit

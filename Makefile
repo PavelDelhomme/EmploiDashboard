@@ -5,23 +5,34 @@ SHELL := /bin/bash
 
 ROOT := $(abspath .)
 
-.PHONY: help env env-merge up up-full down down-dashboard restart restart-full logs logs-full ps ps-dashboard shell build build-full clean url url-full port-print install dev run \
+.PHONY: help env env-merge status up up-full down down-dashboard restart restart-full logs logs-full logs-mailpit ps ps-dashboard shell build build-full clean url url-full url-mailpit port-print preview-port install dev run \
 	push push-all branches-init
 
 help: ## Affiche les cibles disponibles
 	@echo "Cibles principales :"
 	@grep -E '^[a-zA-Z0-9_.-]+:.*##' $(MAKEFILE_LIST) | sort | sed 's/^\([^:]*\):.*## /  \1 → /'
 
+status: ## État du projet (Docker rennes-emploi), ports, URLs, santé HTTP (couleurs)
+	@chmod +x scripts/project-status.sh 2>/dev/null || true
+	@bash scripts/project-status.sh
+
 env: ## Crée .env depuis .env.example si absent (+ scripts exécutables)
 	@test -f .env || cp .env.example .env
 	@chmod +x scripts/*.sh 2>/dev/null || true
-	@echo "[env] .env prêt. make up = dashboard seul · make up-full = + Camoufox · make run = Go local."
+	@echo "[env] .env prêt. HOST_PORT = dashboard · MAILPIT_PUBLIC_URL = lire les mails locaux · make up."
+
+url-mailpit: ## Affiche l’URL Mailpit (depuis .env ou port publié du conteneur)
+	@u=$$(grep -E '^MAILPIT_PUBLIC_URL=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\"'); \
+	if [[ -n "$$u" ]]; then echo "$$u"; else \
+	  p=$$(docker port rennes-emploi-mailpit 8025 2>/dev/null | head -1 | rev | cut -d: -f1 | rev); \
+	  if [[ -n "$$p" ]]; then echo "http://127.0.0.1:$$p"; else echo "[url-mailpit] Lance make up et définis MAILPIT_PUBLIC_URL dans .env"; exit 1; fi; \
+	fi
 
 env-merge: ## Ajoute dans .env les clés manquantes par rapport à .env.example (sans écraser)
 	@chmod +x scripts/merge-env.sh 2>/dev/null || true
 	@bash scripts/merge-env.sh
 
-up: env ## Démarre Docker — dashboard seul (HOST_PORT auto si AUTO_HOST_PORT=true)
+up: env ## Démarre Docker — ports = HOST_PORT et CAMOUFOX_HOST_PORT dans .env (fixes)
 	@chmod +x scripts/*.sh
 	@bash scripts/docker-up.sh
 
@@ -45,6 +56,9 @@ logs: ## Suit les logs du conteneur dashboard
 logs-full: ## Logs dashboard + camoufox-scraper (profil camoufox)
 	docker compose --profile camoufox logs -f dashboard camoufox-scraper
 
+logs-mailpit: ## Logs du service Mailpit (capture SMTP)
+	docker compose logs -f mailpit
+
 ps: ## État des conteneurs (inclut camoufox si profil utilisé au up)
 	docker compose --profile camoufox ps -a
 
@@ -60,8 +74,9 @@ build: env ## Build l’image dashboard sans lancer
 build-full: env ## Build dashboard + image camoufox-scraper
 	docker compose --profile camoufox build
 
-clean: down ## Arrête et affiche comment supprimer le volume SQLite
-	@echo "Pour effacer la base locale : docker volume rm rennes-emploi-sqlite"
+clean: down ## Arrête et rappelle comment supprimer les volumes (SQLite + boîte Mailpit)
+	@echo "Volumes nommés : rennes-emploi-sqlite (dashboard), rennes-emploi-mailpit (mails captés)."
+	@echo "Supprimer : docker volume rm rennes-emploi-sqlite rennes-emploi-mailpit"
 
 url: ## Affiche l’URL si le conteneur tourne (port publié)
 	@p=$$(docker port rennes-emploi-dashboard 3000 2>/dev/null | head -1 | rev | cut -d: -f1 | rev); \
@@ -75,6 +90,10 @@ url-full: ## URL dashboard + URL scraper Camoufox si les conteneurs tournent
 
 port-print: ## Affiche HOST_PORT lu dans .env (sans test réseau)
 	@grep -E '^HOST_PORT=' .env 2>/dev/null || echo "Pas de .env"
+
+preview-port: env ## Affiche HOST_PORT + URL (comme au prochain « make up » ; AUTO_HOST_PORT=true = scan plage)
+	@chmod +x scripts/preview-host-port.sh
+	@bash scripts/preview-host-port.sh
 
 install: env ## npm install local (hors Docker, legacy Node)
 	@command -v npm >/dev/null && (cd "$(ROOT)" && npm install) || { echo "[install] npm introuvable dans ce shell — utilise Docker : make up"; exit 1; }
